@@ -12,3 +12,22 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model Genre {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  slug  String @unique
+  books Book[]
+}
+
+model Book {
+  id              Int       @id @default(autoincrement())
+  title           String
+  isbn            String?   @unique
+  author          String
+  publisher       String?
+  publicationDate DateTime?
+  language        String
+  genreId         Int
+  genre           Genre     @relation(fields: [genreId], references: [id])
+}
