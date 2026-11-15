@@ -27,7 +27,8 @@ model Book {
   author          String
   publisher       String?
   publicationDate DateTime?
-  language        String
+  language        String    @default("English")
+  totalCopies     Int       @default(1)
   genreId         Int
   genre           Genre     @relation(fields: [genreId], references: [id])
 }
