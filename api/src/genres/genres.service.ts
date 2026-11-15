@@ -1,0 +1,8 @@
+import { Injectable } from '@nestjs/common';
+
+@Injectable()
+export class GenresService {
+  findAll() {
+    return ['Productivity', 'Mystery'];
+  }
+}
