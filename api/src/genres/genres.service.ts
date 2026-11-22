@@ -1,4 +1,8 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 
@@ -29,5 +33,15 @@ export class GenresService {
       }
       throw error;
     }
+  }
+
+  async findOne(id: number) {
+    const genre = await this.prisma.genre.findUnique({
+      where: { id },
+    });
+    if (!genre) {
+      throw new NotFoundException(`Genre with ID ${id} not found`);
+    }
+    return genre;
   }
 }
