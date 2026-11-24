@@ -28,6 +28,7 @@ export class BooksService {
   }
 
   // Turns a Prisma error into the right HTTP exception.
+  // Codes: P2002 = unique taken (isbn), P2003 = foreign key failed on insert (genreId).
   private handlePrismaError(error: unknown): never {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === 'P2002') {
