@@ -68,7 +68,7 @@ export class GenresService {
   }
 
   // Turns a Prisma error into the right HTTP exception.
-  // Codes: P2002 = unique taken, P2025 = row not found, P2003 = other FK failures.
+  // Codes: P2002 = unique taken, P2025 = row not found.
   // A RESTRICT violation arrives unlabelled (no code), so it is matched by message text.
   private handlePrismaError(error: unknown, id: number): never {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -76,11 +76,8 @@ export class GenresService {
         throw new ConflictException(
           'Genre with this name or slug already exists',
         );
-      } else if (error.code === 'P2003') {
-        throw new ConflictException(
-          'Cannot delete genre because it still has books associated with it. Please remove the books first.',
-        );
-      } else if (error.code === 'P2025') {
+      }
+      if (error.code === 'P2025') {
         throw new NotFoundException(`Genre with ID ${id} not found`);
       }
     }
