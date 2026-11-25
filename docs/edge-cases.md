@@ -120,3 +120,47 @@ Notes:
 - `publicationDate` reaches the service as a string. The service converts it with `new Date(...)` because Prisma's `DateTime` wants a real date, and I expect it to reject a date-only string (not yet run).
 - A rejected insert still uses up an id: the sequence isn't rolled back, so id 33 is missing.
 - The FK to a missing genre arrives as `P2003` on insert. The RESTRICT refusal on genre delete arrives as an unlabelled `23001`. Same constraint, two different errors.
+
+### `GET /books/:id`
+Rules (my decisions, 2026-11-25): an id the database can never hold is a 400 (client error), not a 500. No database state could ever make it valid.
+
+"Seen" = run by curl. A dash means the row is written but not run yet. The route does not exist yet, so nothing below can be run.
+
+| # | Request | Code | Produced by | Seen |
+|---|---|---|---|---|
+| 1 | `/34` (exists) | 200 | Nest default | - |
+| 2 | `/abc` or `/2.5` | 400 | `ParseIntPipe` | - |
+| 3 | `/9999` (valid integer, no row) | 404 | `NotFoundException` (own `if (!book)` guard) | - |
+| 4 | `/-9` or `/0` | 404 | same guard; the pipe accepts any integer | - |
+| 5 | `/9999999999` (too big for the DB integer) | target 400, today 500 | target: custom pipe (not written). Today: uncaught DB error | - |
+| 6 | `/34%20` (trailing space) | to verify | `ParseIntPipe` or the guard, depending on trimming | - |
+| 7 | route missing (no `@Get(':id')`) | 404 | Express router, no handler ran (`Cannot GET /books/34%20`) | yes (2026-11-25) |
+
+Notes:
+- Two different 404s: a router 404 (no route matched, message `Cannot GET ...`) and a handler 404 (`NotFoundException`, the service ran).
+- `GET /books/` with no id matches `GET /books` (the list). It belongs in that table, not here.
+- Row 5 is a known gap. The same fix would cover the Genre `:id` routes (rows D5 and the 500s in PATCH and DELETE).
+
+### `PATCH /books/:id`
+Id rows are the same as `GET /books/:id`. Body rules are the same as `POST /books`, except every field is optional (partial update). The route does not exist yet, so nothing below can be run.
+
+| # | Request | Code | Produced by | Seen |
+|---|---|---|---|---|
+| 1 | `/34`, `{title:"X"}` | 200 | Nest default | - |
+| 2 | `/34`, `{}` | 200 | every DTO field is optional | - |
+| 3 | `/` (no id) | 404 | Express router, no matching route (the pipe has nothing to parse) | - |
+| 4 | `/abc` or `/2.5` | 400 | `ParseIntPipe` | - |
+| 5 | `/9999`, `/-9` or `/0` (valid integer, no row) | 404 | `NotFoundException` (from `P2025`) | - |
+| 6 | `/9999999999` | target 400, today 500 | target: custom pipe (not written). Today: uncaught DB error | - |
+| 7 | `{title:67}` (wrong type) | 400 | `ValidationPipe` (`@IsString`) | - |
+| 8 | `{name:"X"}` (not a Book field), or `{id:3}` | 400 | `ValidationPipe` (`forbidNonWhitelisted`) | - |
+| 9 | `{title:""}` | 400 | `ValidationPipe` (`@IsNotEmpty`) | - |
+| 10 | `{totalCopies:9999999999}` or `1001` | 400 | `ValidationPipe` (`@Max`) | - |
+| 11 | `{totalCopies:-9}` or `0` | 400 | `ValidationPipe` (`@Min`) | - |
+| 12 | `{totalCopies:2.5}` | 400 | `ValidationPipe` (`@IsInt`) | - |
+| 13 | `{genreId:9999}` (no such genre) | 400 | own `catch` (`P2003`) | - |
+| 14 | `{isbn}` already used by another book | 409 | own `catch` (`P2002`) | - |
+| 15 | malformed JSON | 400 | body parser | - |
+
+Notes:
+- Row 14 is 409 only when a different book already has that `isbn`. A PATCH that sends a book's own current `isbn` back (an edit form sending the whole object) is 200: the unique rule compares against other rows, and the row being updated is not a second one. Expected, not run.
